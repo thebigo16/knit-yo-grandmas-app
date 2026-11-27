@@ -63,7 +63,7 @@ function nextPart(p, cur) {
 function newPart(p) {
   const crochet = p.craft === 'crochet';
   return { id: uid(), name: '', targetRows: 20, mode: 'oddeven', oddLabel: crochet ? 'Right side' : 'Knit', evenLabel: crochet ? 'Wrong side' : 'Purl',
-    rowsPerRepeat: 2, labels: [], notes: '', completedRows: 0, complete: false };
+    rowsPerRepeat: 2, labels: [], notes: '', completedRows: 0, complete: false, lengthMode: 'rows', targetRepeats: 10 };
 }
 
 /* ---------- icons ---------- */
@@ -442,6 +442,7 @@ function enableDrag(list, p) {
 }
 
 /* ---------- part form ---------- */
+const rowsCalc = (t, n, u) => t % n === 0 ? `That's ${plural(t / n, 'repeat')} of ${n} ${u}s` : `About ${(t / n).toFixed(1).replace(/\.0$/, '')} repeats of ${n} ${u}s`;
 function renderPartForm({ p, partId, fromNew }) {
   const existing = partId !== 'new' ? p.parts.find(x => x.id === partId) : null;
   if (partId !== 'new' && !existing) return go(`#/p/${p.id}`);
@@ -450,16 +451,14 @@ function renderPartForm({ p, partId, fromNew }) {
   const u = unit(p), U = Unit(p);
   const custom = d.mode === 'custom';
   const n = custom ? d.labels.length : d.rowsPerRepeat;
+  const byReps = d.lengthMode === 'repeats';
+  if (byReps) d.targetRows = clampInt((+d.targetRepeats || 1) * n, 1, 9999);
   view.innerHTML = `
     <div class="nav"><button data-a="back">${fromNew ? 'Skip' : '‹ Back'}</button><span class="title">${existing ? 'Edit Part' : 'New Part'}</span>
       <button class="strong" data-a="done" ${d.name.trim() ? '' : 'disabled'}>Done</button></div>
     <div class="pad" style="padding-bottom:40px">
       ${fromNew ? `<p class="muted" style="margin:0 4px 6px;font-size:15px">Add the first part of <b style="color:var(--ink)">${esc(p.name)}</b>. You can add more after.</p>` : ''}
-      <div style="display:flex;gap:10px">
-        <div style="flex:1;min-width:0"><div class="label" style="margin-top:4px">Part name</div><input class="field" id="f-pname" placeholder="e.g. Body" value="${esc(d.name)}" autocomplete="off"></div>
-        <div style="width:136px"><div class="label" style="margin-top:4px">Target ${u}s</div>
-          <div class="stepper"><button data-a="t-" aria-label="Fewer">−</button><input id="f-target" inputmode="numeric" pattern="[0-9]*" value="${d.targetRows}"><button data-a="t+" aria-label="More">+</button></div></div>
-      </div>
+      <div class="label" style="margin-top:4px">Part name</div><input class="field" id="f-pname" placeholder="e.g. Body" value="${esc(d.name)}" autocomplete="off">
       <div class="label">${U} pattern</div>
       <div class="seg"><button data-mode="oddeven" class="${!custom ? 'on' : ''}">Odd / Even</button><button data-mode="custom" class="${custom ? 'on' : ''}">${U} by ${u}</button></div>
       <div class="card" style="margin-top:10px;padding:8px 0">
@@ -469,6 +468,17 @@ function renderPartForm({ p, partId, fromNew }) {
           : `<div class="rr"><span class="n">Odd</span><input id="f-odd" value="${esc(d.oddLabel)}" placeholder="e.g. Knit"></div>
              <div class="rr"><span class="n">Even</span><input id="f-even" value="${esc(d.evenLabel)}" placeholder="e.g. Purl"></div>`}
         <div class="faint" style="font-size:13px;padding:8px 16px 6px">After ${u} ${n}, the repeat starts again at ${u} 1.</div>
+      </div>
+      <div class="label">Part length</div>
+      <div class="seg"><button data-len="rows" class="${!byReps ? 'on' : ''}">Total ${u}s</button><button data-len="repeats" class="${byReps ? 'on' : ''}">Number of repeats</button></div>
+      <div class="card lenbox">
+        ${byReps
+          ? `<div class="lenrow"><span>Repeats</span>
+               <div class="stepper"><button data-a="p-" aria-label="Fewer">−</button><input id="f-reps" inputmode="numeric" pattern="[0-9]*" value="${d.targetRepeats}"><button data-a="p+" aria-label="More">+</button></div></div>
+             <div class="calc" id="f-calc">${d.targetRepeats || 0} × ${n} ${u}s = <b>${d.targetRows} ${u}s</b></div>`
+          : `<div class="lenrow"><span>Target ${u}s</span>
+               <div class="stepper"><button data-a="t-" aria-label="Fewer">−</button><input id="f-target" inputmode="numeric" pattern="[0-9]*" value="${d.targetRows}"><button data-a="t+" aria-label="More">+</button></div></div>
+             <div class="calc" id="f-calc">${rowsCalc(+d.targetRows || 0, n, u)}</div>`}
       </div>
       <div class="label">Notes for this part</div>
       <textarea class="field" id="f-notes" rows="4" placeholder="Needle changes, decreases, reminders…">${esc(d.notes)}</textarea>
@@ -482,8 +492,19 @@ function renderPartForm({ p, partId, fromNew }) {
     </div>`;
   const syncDone = () => view.querySelectorAll('[data-a=done]').forEach(b => b.disabled = !d.name.trim());
   $('#f-pname').oninput = e => { d.name = e.target.value; syncDone(); };
-  $('#f-target').oninput = e => { d.targetRows = e.target.value === '' ? '' : clampInt(e.target.value, 1, 9999); };
-  $('#f-target').onblur = () => { d.targetRows = clampInt(d.targetRows, 1, 9999); $('#f-target').value = d.targetRows; };
+  if ($('#f-target')) {
+    $('#f-target').oninput = e => { d.targetRows = e.target.value === '' ? '' : clampInt(e.target.value, 1, 9999); $('#f-calc').textContent = rowsCalc(+d.targetRows || 0, n, u); };
+    $('#f-target').onblur = () => { d.targetRows = clampInt(d.targetRows, 1, 9999); $('#f-target').value = d.targetRows; $('#f-calc').textContent = rowsCalc(d.targetRows, n, u); };
+  }
+  if ($('#f-reps')) {
+    const maxReps = Math.floor(9999 / n);
+    $('#f-reps').oninput = e => {
+      d.targetRepeats = e.target.value === '' ? '' : clampInt(e.target.value, 1, maxReps);
+      d.targetRows = clampInt((+d.targetRepeats || 1) * n, 1, 9999);
+      $('#f-calc').innerHTML = `${d.targetRepeats || 0} × ${n} ${u}s = <b>${d.targetRows} ${u}s</b>`;
+    };
+    $('#f-reps').onblur = () => { d.targetRepeats = clampInt(d.targetRepeats, 1, maxReps); $('#f-reps').value = d.targetRepeats; };
+  }
   if ($('#f-done')) { $('#f-done').oninput = e => { d.completedRows = clampInt(e.target.value, 0, 99999); }; $('#f-done').onblur = () => { $('#f-done').value = d.completedRows; }; }
   if ($('#f-odd')) { $('#f-odd').oninput = e => d.oddLabel = e.target.value; $('#f-even').oninput = e => d.evenLabel = e.target.value; }
   view.querySelectorAll('[data-label]').forEach(inp => inp.oninput = e => { d.labels[+inp.dataset.label] = e.target.value; });
@@ -496,6 +517,11 @@ function renderPartForm({ p, partId, fromNew }) {
       else d.rowsPerRepeat = d.labels.length;
       d.mode = b.dataset.mode;
     }
+    else if (b.dataset.len && b.dataset.len !== (d.lengthMode || 'rows')) {
+      if (b.dataset.len === 'repeats') d.targetRepeats = Math.max(1, Math.round((+d.targetRows || n) / n));
+      d.lengthMode = b.dataset.len;
+    }
+    else if (a === 'p-' || a === 'p+') d.targetRepeats = clampInt((+d.targetRepeats || 0) + (a === 'p+' ? 1 : -1), 1, Math.floor(9999 / n));
     else if (a === 't-' || a === 't+') d.targetRows = clampInt((+d.targetRows || 0) + (a === 't+' ? 1 : -1), 1, 9999);
     else if (a === 'c-' || a === 'c+') d.completedRows = clampInt(d.completedRows + (a === 'c+' ? 1 : -1), 0, 99999);
     else if (a === 'r-' || a === 'r+') {
@@ -511,8 +537,10 @@ function renderPartForm({ p, partId, fromNew }) {
     });
     else if (a === 'done') {
       if (!d.name.trim()) return;
-      d.name = d.name.trim(); d.targetRows = clampInt(d.targetRows, 1, 9999);
+      d.name = d.name.trim();
       if (d.mode === 'custom') d.rowsPerRepeat = d.labels.length;
+      if (d.lengthMode === 'repeats') { d.targetRepeats = clampInt(d.targetRepeats, 1, Math.floor(9999 / rpr(d))); d.targetRows = clampInt(d.targetRepeats * rpr(d), 1, 9999); }
+      d.targetRows = clampInt(d.targetRows, 1, 9999);
       if (existing) {
         if (existing.completedRows !== d.completedRows) p.history = p.history.filter(h => h.partId !== existing.id); // manual edit: drop stale undo steps
         Object.assign(existing, d);

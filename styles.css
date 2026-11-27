@@ -211,3 +211,9 @@ h1{font-size:32px;font-weight:750;letter-spacing:-.5px;line-height:1.15}
 @keyframes fade{from{opacity:0}}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .hap{position:fixed;left:-100px;top:-100px;opacity:0;pointer-events:none}
+.lenbox{margin-top:10px;padding:10px 16px 12px}
+.lenrow{display:flex;justify-content:space-between;align-items:center;gap:12px;font-weight:600}
+.lenrow .stepper{box-shadow:none;background:var(--sunk);width:150px;height:48px}
+.lenrow .stepper button{height:48px}
+.calc{color:var(--muted);font-size:14px;margin-top:10px}
+.calc b{color:var(--accent)}
