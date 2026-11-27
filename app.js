@@ -578,7 +578,7 @@ function renderKnit({ p }) {
     </div>
     <div class="k-main">
       <div class="rowof" aria-live="polite">${U.toUpperCase()} ${i + 1} <small>of ${n}</small></div>
-      <div class="instr">${esc(rowLabel(part, i))}</div>
+      <div class="instr ${rowLabel(part, i).length > 140 ? 'longer' : rowLabel(part, i).length > 40 ? 'long' : ''}">${esc(rowLabel(part, i))}</div>
       <button class="partpill" data-a="parts">${esc(part.name)} · ${over ? `${part.completedRows} of ${part.targetRows} ${u}s ✓` : `${u} ${part.completedRows + 1} of ${part.targetRows}`}</button>
       ${dots}
       ${next ? `<div class="next">Next: ${esc(next)}</div>` : ''}
@@ -597,6 +597,8 @@ function renderKnit({ p }) {
       <button class="iconbtn" data-a="notes" aria-label="Notes">${I.note}${part.notes.trim() ? '<span style="position:absolute;margin:-22px -22px 0 0;width:9px;height:9px;border-radius:50%;background:var(--accent)"></span>' : ''}</button>
     </div>`;
   acquireWake(); updateAwakeBadge();
+  const km = $('.k-main'), fade = () => km.classList.toggle('scrolls', km.scrollTop + km.clientHeight < km.scrollHeight - 4);
+  km.onscroll = fade; fade();
   view.onclick = e => {
     const b = e.target.closest('[data-a]'); if (!b) return;
     const a = b.dataset.a;
